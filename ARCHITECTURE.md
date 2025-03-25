@@ -13,6 +13,7 @@ SmartVote consists of several key components that work together:
 5. **Analyzer** (`analyzer.py`): Generates policy analysis using OpenAI
 6. **Embedding Utility** (`embedding.py`): Creates vector embeddings
 7. **Data Processor** (`data_processing.py`): Processes PDF documents and saves as JSON
+8. **Vector Math** (`cosine.py`): Provides optimized similarity calculations
 
 ## Application Flow
 
@@ -161,7 +162,7 @@ This phase happens when a user submits a query through the web interface.
    def retrieve_similar_documents(query, top_n=25):
        query_embedding = get_embedding(query)
        # Load documents from JSON
-       # Calculate similarity scores
+       # Calculate similarity scores using cosine.py
        # Return top N results
    ```
 
@@ -302,8 +303,9 @@ SmartVote maintains state in several ways:
 - **Backend**:
   - FastAPI (API framework)
   - OpenAI API (embeddings and text generation)
-  - PyPDF2 (PDF processing)
+  - PyPDF2 & PyPDF (PDF processing)
   - Python (primary language)
+  - NumPy (vector operations)
 
 - **Frontend**:
   - HTML/CSS (UI structure and styling)
@@ -313,7 +315,7 @@ SmartVote maintains state in several ways:
 
 - **Data Processing**:
   - Vector embeddings (semantic search)
-  - Cosine similarity (relevance ranking)
+  - Cosine similarity (relevance ranking with NumPy)
   - GPT-3.5 Turbo (analysis generation)
   - JSON (data storage)
 

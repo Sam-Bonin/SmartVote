@@ -23,16 +23,22 @@ SmartVote integrates several advanced technologies:
 ## Requirements
 
 - Python 3.9+
-- FastAPI
-- OpenAI API key
-- PyPDF2 for PDF processing
-- Pydantic for data validation
+- OpenAI API key (for GPT-based analysis)
+- Required packages (installed from requirements.txt):
+  - FastAPI
+  - Uvicorn
+  - OpenAI
+  - PyPDF
+  - PyPDF2
+  - Pydantic
+  - python-dotenv
+  - NumPy
 
 ## Setup and Installation
 
 1. Clone this repository:
    ```
-   git clone https://github.com/username/smartvote.git
+   git clone https://github.com/yourusername/smartvote.git
    cd smartvote
    ```
 
@@ -44,19 +50,20 @@ SmartVote integrates several advanced technologies:
 
 3. Install dependencies:
    ```
-   pip install -r requirements.txt
+   pip install -r requirements.txt  # requirements.txt is at the root level
    ```
 
 4. Set up your OpenAI API key:
    ```
-   # Create a .env file in the project root
+   # Create a .env file in the src directory
+   cd src  # Navigate to the source code directory
    echo "OPENAI_API_KEY=your-api-key" > .env
    ```
 
 5. Process the PDF and generate embeddings:
    ```
    # Run this script to process the Liberal.pdf file and create embeddings
-   python -m data_processing
+   python data_processing.py
    ```
 
 6. Start the application:
@@ -74,7 +81,7 @@ SmartVote integrates several advanced technologies:
 If the app doesn't automatically generate embeddings on first run, you can manually trigger the process:
 
 ```python
-# Run this from the smartvote directory
+# Run this from the src directory
 python -c "from retriever import save_embeddings_to_file; save_embeddings_to_file()"
 ```
 
@@ -102,6 +109,23 @@ This will:
 4. Vector similarity is used to find the most relevant sections of the party platform
 5. The relevant sections are sent to GPT with a prompt to analyze the party's position
 6. The analysis is returned to the user, along with links to the original document
+
+## Troubleshooting
+
+- If you encounter issues starting the application, make sure you have activated the virtual environment:
+  ```
+  source venv/bin/activate  # On Windows: venv\Scripts\activate
+  ```
+- Ensure your OpenAI API key is properly set in the .env file in the src directory
+- If you get module not found errors, verify that all dependencies are installed:
+  ```
+  pip install -r requirements.txt  # Run this from the root directory
+  ```
+- Check that the Liberal.pdf file exists in the src/data directory before running data_processing.py
+- If you encounter errors about missing packages, try installing the specific missing package:
+  ```
+  pip install numpy  # Example for installing numpy if it's missing
+  ```
 
 ## Future Development
 
