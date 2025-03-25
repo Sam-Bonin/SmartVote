@@ -8,6 +8,8 @@ SmartVote is an AI-powered web application that allows users to explore politica
 - **AI Analysis**: Receive detailed explanations of party positions on various issues
 - **PDF Integration**: View original source documents alongside AI analysis
 - **Interactive UI**: User-friendly interface for exploring policy information
+- **Efficient Caching**: In-memory caching of query embeddings and results for faster responses
+- **Token Management**: Smart token limiting for optimal prompt generation
 
 ## Technical Overview
 
@@ -18,6 +20,7 @@ SmartVote integrates several advanced technologies:
 - **GPT Models**: Generates clear, comprehensive analysis of policy positions
 - **PDF Processing**: Extracts and processes text from official party documents
 - **FastAPI Backend**: Provides efficient API endpoints for the frontend
+- **Memory Optimization**: Stores only page references and embeddings in JSON, with lazy loading of text content
 - **All data is stored in JSON files with no database dependencies**
 
 ## Requirements
@@ -82,22 +85,23 @@ If the app doesn't automatically generate embeddings on first run, you can manua
 
 ```python
 # Run this from the src directory
-python -c "from retriever import save_embeddings_to_file; save_embeddings_to_file()"
+python data_processing.py
 ```
 
 This will:
 1. Process the PDF file in the data directory
 2. Generate embeddings for each page
-3. Save them to data/liberal_with_embeddings.json
+3. Save them to data/document_embeddings.json
 
 ## File Structure
 
-- `app.py`: FastAPI application entry point
+- `app.py`: FastAPI application entry point with API endpoints
 - `main.py`: Core functionality for the Party class
-- `retriever.py`: Semantic search functions for document retrieval
-- `analyzer.py`: GPT-based analysis generation
+- `retriever.py`: Semantic search functions for document retrieval with caching
+- `analyzer.py`: GPT-based analysis generation with token optimization
 - `embedding.py`: Vector embedding utilities
-- `data_processing.py`: PDF processing and JSON storage functions
+- `data_processing.py`: PDF processing and reference management
+- `cosine.py`: Optimized vector similarity calculations
 - `data/`: Directory containing the PDF documents and embeddings
 - `index.html`: Main frontend interface
 
@@ -105,10 +109,19 @@ This will:
 
 1. When first loaded, the application processes the PDF document and generates embeddings for each page
 2. User enters a query about a policy area (e.g., "housing policy")
-3. The query is converted to a vector embedding
+3. The query is converted to a vector embedding (cached for future use)
 4. Vector similarity is used to find the most relevant sections of the party platform
-5. The relevant sections are sent to GPT with a prompt to analyze the party's position
-6. The analysis is returned to the user, along with links to the original document
+5. Text content is loaded from the PDF only for the relevant pages
+6. The relevant sections are sent to GPT with a token-optimized prompt
+7. The analysis is returned to the user, along with links to the original document
+
+## API Endpoints
+
+- **POST /query**: Process a query and return analysis with relevant document sections
+- **POST /clear-cache**: Clear the query and embedding caches
+- **GET /health**: Simple endpoint to check if the service is running
+- **GET /**: Serve the main application interface
+- **GET /data/{file_path}**: Serve files from the data directory
 
 ## Troubleshooting
 

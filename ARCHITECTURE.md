@@ -9,10 +9,10 @@ SmartVote consists of several key components that work together:
 1. **Web Interface** (`index.html`): The frontend that users interact with
 2. **API Server** (`app.py`): FastAPI application serving requests
 3. **Core Logic** (`main.py`): Contains the Party class with main functionality
-4. **Retriever** (`retriever.py`): Handles semantic document retrieval
-5. **Analyzer** (`analyzer.py`): Generates policy analysis using OpenAI
+4. **Retriever** (`retriever.py`): Handles semantic document retrieval with caching
+5. **Analyzer** (`analyzer.py`): Generates policy analysis using OpenAI with token optimization
 6. **Embedding Utility** (`embedding.py`): Creates vector embeddings
-7. **Data Processor** (`data_processing.py`): Processes PDF documents and saves as JSON
+7. **Data Processor** (`data_processing.py`): Processes PDF documents and saves references
 8. **Vector Math** (`cosine.py`): Provides optimized similarity calculations
 
 ## Application Flow
@@ -25,22 +25,10 @@ This phase happens before the application serves user queries. It involves proce
 
 ```
 ┌─────────────┐     ┌───────────────┐     ┌────────────┐     ┌────────────────┐
-│  Liberal.pdf│────>│ data_processing│───>│ PyPDF2     │────>│ Extract Text   │
-└─────────────┘     │ .py           │     │ Page Reader│     │ from Each Page │
-                    └───────┬───────┘     └────────────┘     └────────┬───────┘
-                            │                                         │
-                            ▼                                         ▼
-┌─────────────┐     ┌──────▼──────┐     ┌────────────┐     ┌────────────────┐
-│  OpenAI API │<────│ embedding.py│<────│ Process    │<────│ For Each Page  │
-│  (Embeddings│     │             │     │ Text       │     │                │
-│  Model)     │     └──────┬──────┘     └────────────┘     └────────────────┘
-└──────┬──────┘            │
-       │                   │
-       ▼                   ▼
-┌─────────────┐     ┌─────────────┐     ┌────────────┐ 
-│  Vector     │────>│ Store Data  │────>│ JSON File  │ 
-│  Embeddings │     │             │     │            │ 
-└─────────────┘     └─────────────┘     └────────────┘ 
+│  Vector     │────>│ Store Data    │────>│ JSON File  │ 
+│  Embeddings │     │ References    │     │ (document_ │ 
+└─────────────┘     └─────────────┘       │ embeddings.json)│ 
+                                          └────────────┘ 
 ```
 
 **Detailed Flow:**
@@ -51,19 +39,20 @@ This phase happens before the application serves user queries. It involves proce
 4. For each page:
    - The text is processed to remove unwanted characters
    - The text is sent to OpenAI's embedding API through `embedding.py`
-   - The returned vector embedding is paired with the text and page number
-5. The data is stored in a JSON file (`liberal_with_embeddings.json`)
+   - The returned vector embedding is paired with the page reference (not full text)
+5. The references and embeddings are stored in a JSON file (`document_embeddings.json`)
 
 **Code Flow:**
 
-1. `data_processing.py` (function: `load_and_chunk_pdf()`):
+1. `data_processing.py` (function: `process_pdf_and_create_embeddings()`):
    - Opens the PDF file and creates a PDF reader
    - Loops through each page
    - Extracts text from each page
    - Gets embedding for the text via `embedding.py`
-   - Creates a document with page number, text, and embedding
-   - Adds the document to a list
+   - Creates a document reference with page number and embedding (not full text)
+   - Adds the document reference to a list
    - Saves the list to a JSON file
+   - Provides `get_page_text()` function to retrieve text when needed
 
 ### Phase 2: Live Query Processing
 
@@ -89,11 +78,17 @@ This phase happens when a user submits a query through the web interface.
        │                                                              │
        ▼                                                              ▼
 ┌─────────────┐     ┌───────────────┐     ┌────────────┐     ┌────────────────┐
-│  retriever  │────>│ Get Query     │────>│ Convert to │────>│ OpenAI API     │
-│  .py        │     │ Embedding     │     │ Vector     │     │ (Embeddings)   │
-└──────┬──────┘     └───────────────┘     └────────────┘     └────────┬───────┘
-       │                                                              │
-       ▼                                                              ▼
+│  retriever  │────>│ Check Query   │────>│ Return     │────>│ Query Cache    │
+│  .py        │     │ Cache         │     │ Cached     │     │                │
+└──────┬──────┘     └───────────────┘     │ Results    │     └────────────────┘
+       │                                   └────────────┘
+       ▼                                            
+┌─────────────┐     ┌───────────────┐     ┌────────────┐     ┌────────────────┐
+│  Get Query  │────>│ Check         │────>│ Return     │────>│ Embedding Cache│
+│  Embedding  │     │ Embedding     │     │ Cached     │     │                │
+└──────┬──────┘     │ Cache         │     │ Embedding  │     └────────────────┘
+       │            └───────────────┘     └────────────┘
+       ▼
 ┌─────────────┐     ┌───────────────┐     ┌────────────┐     ┌────────────────┐
 │  Load JSON  │────>│ Compare with  │────>│ Rank by    │────>│ Return Top     │
 │  Embeddings │     │ Stored Vectors│     │ Similarity │     │ Documents      │
@@ -101,8 +96,20 @@ This phase happens when a user submits a query through the web interface.
        │                                                              │
        ▼                                                              ▼
 ┌─────────────┐     ┌───────────────┐     ┌────────────┐     ┌────────────────┐
-│  analyzer.py│────>│ Generate      │────>│ OpenAI API │────>│ GPT-3.5 Turbo  │
-│             │     │ Analysis      │     │ (Chat)     │     │ Model          │
+│  Load Text  │────>│ From PDF File │────>│ Only for   │────>│ Top Results    │
+│  Content    │     │               │     │ Top Results│     │                │
+└──────┬──────┘     └───────────────┘     └────────────┘     └────────┬───────┘
+       │                                                              │
+       ▼                                                              ▼
+┌─────────────┐     ┌───────────────┐     ┌────────────┐     ┌────────────────┐
+│  analyzer.py│────>│ Token Count   │────>│ Truncate   │────>│ Optimize       │
+│             │     │ Estimation    │     │ Context    │     │ Prompt Length  │
+└──────┬──────┘     └───────────────┘     └────────────┘     └────────┬───────┘
+       │                                                              │
+       ▼                                                              ▼
+┌─────────────┐     ┌───────────────┐     ┌────────────┐     ┌────────────────┐
+│  Generate   │────>│ OpenAI API    │────>│ GPT-4o mini│────>│ Analysis       │
+│  Analysis   │     │ (Chat)        │     │ Model      │     │ Response       │
 └──────┬──────┘     └───────────────┘     └────────────┘     └────────┬───────┘
        │                                                              │
        ▼                                                              ▼
@@ -121,15 +128,19 @@ This phase happens when a user submits a query through the web interface.
    - `retrieve()`: Gets similar documents
    - `analyze()`: Generates analysis
 5. Document retrieval process:
-   - The query is converted to a vector embedding using OpenAI's API
+   - Check if results exist in the query cache and return if found
+   - Check if query embedding exists in cache, otherwise generate and cache it
    - The embedding is compared with stored vectors using cosine similarity
    - Documents are ranked by similarity score
    - The top N documents are returned
+   - Actual text is loaded from the PDF only for top results
+   - Results are cached for future queries
 6. Analysis generation:
-   - The top documents are used as context
+   - Token count is estimated for the query and documents
+   - Document context is truncated to fit within token limits
    - A prompt is created combining the query and document context
-   - The prompt is sent to OpenAI's Chat API
-   - GPT-3.5 generates a comprehensive analysis
+   - The prompt is sent to OpenAI's Chat API with optimized token allocation
+   - GPT-4o mini generates a comprehensive analysis
 7. The results (analysis and similar documents) are returned to the frontend
 8. JavaScript renders the analysis and document cards
 9. The most relevant page from the PDF is loaded into the viewer
@@ -160,9 +171,12 @@ This phase happens when a user submits a query through the web interface.
 
    ```python
    def retrieve_similar_documents(query, top_n=25):
-       query_embedding = get_embedding(query)
-       # Load documents from JSON
+       # Check cache for existing results
+       # Get query embedding (from cache if available)
+       # Load document references from JSON
        # Calculate similarity scores using cosine.py
+       # Get text content from PDF for top results only
+       # Cache results for future queries
        # Return top N results
    ```
 
@@ -174,12 +188,21 @@ This phase happens when a user submits a query through the web interface.
 
    ```python
    def generate_analysis(query, documents):
+       # Estimate token counts
+       # Truncate context to fit token limits
        # Create prompt with query and document context
        # Generate response using OpenAI
        # Return analysis
    ```
 
-5. Results Rendering (JavaScript in `index.html`):
+5. Cache Management (`main.py` & `retriever.py`):
+   ```python
+   def clear_cache(self):
+       clear_cache()
+       return {"status": "Cache cleared successfully"}
+   ```
+
+6. Results Rendering (JavaScript in `index.html`):
    - Processes the returned data
    - Formats and displays the analysis
    - Creates cards for supporting evidence
@@ -246,10 +269,10 @@ The flow of data through the application:
                       └───────┬───────┘
                               │
                               ▼
-┌───────────────┐     ┌───────────────┐
-│ static files  │<────│    app.py     │
-│ (PDF, CSS)    │     │ (FastAPI App) │
-└───────────────┘     └───────┬───────┘
+┌───────────────┐     ┌───────────────┐     ┌───────────────┐
+│ static files  │<────│    app.py     │────>│  /clear-cache │
+│ (PDF, CSS)    │     │ (FastAPI App) │     │  /health      │
+└───────────────┘     └───────┬───────┘     └───────────────┘
                               │
                               ▼
                       ┌───────────────┐
@@ -266,16 +289,16 @@ The flow of data through the application:
 └───────┬───────┘                   └───────┬───────┘
         │                                   │
         ▼                                   ▼
-┌───────────────┐                   ┌───────────────┐
-│ embedding.py  │                   │   OpenAI API  │
-│ (Vectors)     │────────────┬─────>│   (GPT)       │
-└───────────────┘            │      └───────────────┘
-                             │
-                             ▼
-                      ┌───────────────┐
-                      │   OpenAI API  │
-                      │  (Embeddings) │
-                      └───────────────┘
+┌───────────────┐     ┌───────────────┐    ┌───────────────┐
+│ embedding.py  │     │ data_processing│    │   OpenAI API  │
+│ (Vectors)     │────>│ (PDF Access)   │    │   (GPT)       │
+└───────┬───────┘     └───────────────┘    └───────────────┘
+        │                      
+        ▼                      
+┌───────────────┐              
+│   OpenAI API  │              
+│  (Embeddings) │              
+└───────────────┘              
 ```
 
 ## State Management
@@ -283,27 +306,35 @@ The flow of data through the application:
 SmartVote maintains state in several ways:
 
 1. **Pre-computed Embeddings**:
-   - Stored in `liberal_with_embeddings.json`
-   - Contains page texts and their vector representations
+   - Stored in `document_embeddings.json`
+   - Contains page references and their vector representations
+   - Does not store full text content (loaded from PDF when needed)
    - Created during the pre-computing phase
    - Reused for all queries
 
-2. **Session State (Frontend)**:
+2. **In-Memory Caches**:
+   - Query embedding cache: Stores computed embeddings for recent queries
+   - Query results cache: Stores results for recent queries
+   - Both caches have size limits and basic eviction strategies
+   - Can be cleared via API endpoint
+
+3. **Session State (Frontend)**:
    - Current query
    - Retrieved documents
    - Selected PDF page
    - UI state (expanded/collapsed sections)
 
-3. **Server State**:
+4. **Server State**:
    - API server maintains no persistent state between requests
    - Each request is processed independently
+   - In-memory caches provide performance optimization
 
 ## Technologies Used
 
 - **Backend**:
   - FastAPI (API framework)
   - OpenAI API (embeddings and text generation)
-  - PyPDF2 & PyPDF (PDF processing)
+  - PyPDF (PDF processing)
   - Python (primary language)
   - NumPy (vector operations)
 
@@ -316,8 +347,10 @@ SmartVote maintains state in several ways:
 - **Data Processing**:
   - Vector embeddings (semantic search)
   - Cosine similarity (relevance ranking with NumPy)
-  - GPT-3.5 Turbo (analysis generation)
+  - GPT-4o mini (analysis generation)
   - JSON (data storage)
+  - Token optimization (prompt efficiency)
+  - Caching (performance optimization)
 
 ## Conclusion
 
@@ -325,4 +358,11 @@ The SmartVote application follows a two-phase architecture:
 1. A pre-computing phase that processes the PDF and generates embeddings
 2. A live query phase that handles user queries and generates responses
 
-This approach allows for efficient semantic search and real-time analysis while keeping the API calls minimal. The separation of document retrieval and analysis generation provides modularity and makes the codebase easier to maintain and extend. 
+This approach allows for efficient semantic search and real-time analysis while keeping the API calls minimal. The separation of document retrieval and analysis generation provides modularity and makes the codebase easier to maintain and extend.
+
+Key optimizations in the architecture include:
+1. Memory efficiency through storing only page references and embeddings
+2. Lazy loading of text content from PDF files
+3. In-memory caching of query embeddings and results
+4. Token optimization for prompt generation
+5. Efficient error handling and health monitoring 

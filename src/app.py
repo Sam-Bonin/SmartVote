@@ -55,6 +55,11 @@ class QueryResponse(BaseModel):
     similar_documents: List[ResponseItem]
 
 
+class StatusResponse(BaseModel):
+    status: str
+    message: str
+
+
 @app.post("/query")
 async def query(query_input: QueryInput):
     """
@@ -83,6 +88,20 @@ async def query(query_input: QueryInput):
         logger.error(f"Error processing query: {str(e)}")
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Error processing query: {str(e)}")
+
+
+@app.post("/clear-cache")
+async def clear_cache():
+    """
+    Clear the query and embedding caches.
+    """
+    try:
+        logger.info("Clearing query and embedding caches")
+        result = party.clear_cache()
+        return {"status": "success", "message": "Cache cleared successfully"}
+    except Exception as e:
+        logger.error(f"Error clearing cache: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error clearing cache: {str(e)}")
 
 
 @app.get("/")
@@ -126,6 +145,14 @@ async def get_file(file_path: str):
     except Exception as e:
         logger.error(f"Error serving file {file_path}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error serving file: {str(e)}")
+
+
+@app.get("/health")
+async def health_check():
+    """
+    Simple health check endpoint.
+    """
+    return {"status": "ok", "message": "Service is running"}
 
 
 if __name__ == "__main__":

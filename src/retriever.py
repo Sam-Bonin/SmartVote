@@ -1,10 +1,20 @@
 from embedding import get_embedding
 from cosine import cosine_similarity
+from data_processing import get_page_text, process_pdf_and_create_embeddings
 import json
 import os
+from typing import Dict, List, Tuple, Optional
+
+# Simple in-memory cache for query embeddings
+query_embedding_cache: Dict[str, List[float]] = {}
+# Simple in-memory cache for query results
+query_results_cache: Dict[str, List[Dict]] = {}
+
+# Maximum cache size
+MAX_CACHE_SIZE = 100
 
 
-def retrieve_similar_documents(query, top_n=25):
+def retrieve_similar_documents(query: str, top_n: int = 25) -> List[Dict]:
     """
     Retrieve documents from the Liberal Party platform that are similar to the query.
     
@@ -15,92 +25,84 @@ def retrieve_similar_documents(query, top_n=25):
     Returns:
         list: List of dictionaries containing text, score, and page number
     """
-    # Get query embedding
-    query_embedding = get_embedding(query)
+    # Check if results are in cache
+    if query in query_results_cache:
+        print(f"Cache hit! Using cached results for query: {query}")
+        return query_results_cache[query][:top_n]
+    
+    # Get query embedding (check cache first)
+    if query in query_embedding_cache:
+        print(f"Using cached embedding for query: {query}")
+        query_embedding = query_embedding_cache[query]
+    else:
+        query_embedding = get_embedding(query)
+        # Add to cache (with simple eviction strategy if cache is full)
+        if len(query_embedding_cache) >= MAX_CACHE_SIZE:
+            # Remove a random item (could be improved with LRU strategy)
+            query_embedding_cache.pop(next(iter(query_embedding_cache)))
+        query_embedding_cache[query] = query_embedding
     
     # Check if embeddings file exists, if not create it
     current_dir = os.path.dirname(os.path.abspath(__file__))
     data_dir = os.path.join(current_dir, "data")
-    embeddings_file = os.path.join(data_dir, "liberal_with_embeddings.json")
+    embeddings_file = os.path.join(data_dir, "document_embeddings.json")
     
     if not os.path.exists(embeddings_file):
-        save_embeddings_to_file()
+        print("Embeddings file not found. Generating embeddings...")
+        num_pages = process_pdf_and_create_embeddings()
+        if num_pages == 0:
+            raise Exception("Failed to generate embeddings")
     
-    # Load documents and their embeddings
+    # Load document embeddings
     try:
         with open(embeddings_file, "r") as f:
-            documents = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        # Fallback to create embeddings again
-        save_embeddings_to_file()
-        with open(embeddings_file, "r") as f:
-            documents = json.load(f)
+            document_refs = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        raise Exception(f"Error loading embeddings: {str(e)}")
     
     # Calculate similarity scores
-    results = []
-    for doc in documents:
-        doc_embedding = doc["embedding"]
+    similarity_scores = []
+    for doc_ref in document_refs:
+        doc_embedding = doc_ref["embedding"]
         score = cosine_similarity(query_embedding, doc_embedding)
-        results.append({
-            "text": doc["text"],
-            "score": score,
-            "page": doc["page"]
-        })
+        similarity_scores.append((doc_ref, score))
     
     # Sort by similarity score (descending)
-    results.sort(key=lambda x: x["score"], reverse=True)
+    similarity_scores.sort(key=lambda x: x[1], reverse=True)
     
-    # Return top N results
-    return results[:top_n]
+    # Get top N results
+    top_results = similarity_scores[:top_n]
+    
+    # Load the actual text for only the top results
+    results = []
+    for doc_ref, score in top_results:
+        page_num = doc_ref["page_num"]
+        file = doc_ref.get("file", "Liberal.pdf")
+        
+        # Get text content directly from PDF
+        text = get_page_text(page_num, file)
+        
+        results.append({
+            "text": text,
+            "score": score,
+            "page": page_num
+        })
+    
+    # Cache the results
+    if len(query_results_cache) >= MAX_CACHE_SIZE:
+        # Simple eviction strategy
+        query_results_cache.pop(next(iter(query_results_cache)))
+    query_results_cache[query] = results
+    
+    return results
 
 
-def save_embeddings_to_file():
-    """
-    Extract data from PDF and save embeddings to a JSON file.
-    """
-    import PyPDF2
-    
-    # Get file paths
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    data_dir = os.path.join(current_dir, "data")
-    pdf_path = os.path.join(data_dir, "Liberal.pdf")
-    
-    # Open PDF file
-    with open(pdf_path, 'rb') as pdf_file:
-        pdf_reader = PyPDF2.PdfReader(pdf_file)
-        
-        # List to store all documents
-        all_documents = []
-        
-        # Process each page
-        for page_num in range(len(pdf_reader.pages)):
-            # Extract text from page
-            page = pdf_reader.pages[page_num]
-            text = page.extract_text()
-            
-            # Skip pages with very little text
-            if len(text.strip()) < 50:
-                continue
-            
-            # Get embedding for the text
-            embedding = get_embedding(text)
-            
-            # Save as document
-            document = {
-                "page": page_num + 1,  # 1-indexed for human readability
-                "text": text,
-                "embedding": embedding
-            }
-            
-            all_documents.append(document)
-            print(f"Processed and stored page {page_num + 1} of {len(pdf_reader.pages)}")
-    
-    # Save all documents to JSON file
-    embeddings_file = os.path.join(data_dir, "liberal_with_embeddings.json")
-    with open(embeddings_file, "w") as f:
-        json.dump(all_documents, f)
-    
-    print(f"Saved {len(all_documents)} documents with embeddings to {embeddings_file}")
+def clear_cache():
+    """Clear the query cache"""
+    global query_embedding_cache, query_results_cache
+    query_embedding_cache.clear()
+    query_results_cache.clear()
+    print("Query cache cleared")
 
 
 if __name__ == "__main__":
@@ -118,3 +120,8 @@ if __name__ == "__main__":
         print(f"Similarity Score: {result['score']:.4f}")
         print(f"Text snippet: {result['text'][:150]}...")  # Show first 150 chars
         print()
+    
+    # Test caching
+    print("\nRunning same query again to test caching...")
+    results2 = retrieve_similar_documents(sample_query, top_n=5)
+    print(f"Returned {len(results2)} results from cache")
