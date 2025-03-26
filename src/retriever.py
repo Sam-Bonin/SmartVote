@@ -5,11 +5,11 @@ import json
 import os
 from typing import Dict, List, Tuple, Optional
 import numpy as np
+from config import MAX_CACHE_SIZE, TOP_N_DOCUMENTS, SIMILARITY_THRESHOLD
 
 # In-memory cache for query embeddings and results
 query_embedding_cache = {}  # Cache for query embeddings
 query_cache = {}  # Cache for query results
-MAX_CACHE_SIZE = 100  # Maximum cache size
 
 def get_cached_embedding(query):
     """Get embedding for a query, using cache if available"""
@@ -32,7 +32,7 @@ def clear_cache():
     query_cache.clear()
     print("Query cache cleared")
 
-def retrieve_similar_documents(query, top_n=25):
+def retrieve_similar_documents(query, top_n=TOP_N_DOCUMENTS):
     """
     Retrieve documents similar to the query using vector similarity.
     
@@ -101,7 +101,7 @@ def retrieve_similar_documents(query, top_n=25):
         )
         
         # Only include if similarity is above threshold
-        if similarity > 0.5:
+        if similarity > SIMILARITY_THRESHOLD:
             page_num = doc_ref["page_num"]
             file = doc_ref.get("file", "Liberal.pdf")
             
@@ -137,7 +137,7 @@ def retrieve_similar_documents(query, top_n=25):
 if __name__ == "__main__":
     # Test retrieval
     query = "Housing crisis"
-    results = retrieve_similar_documents(query, top_n=5)
+    results = retrieve_similar_documents(query, top_n=TOP_N_DOCUMENTS)
     
     print(f"\nResults for query: '{query}'")
     for i, result in enumerate(results):
@@ -146,11 +146,11 @@ if __name__ == "__main__":
         
     # Test caching
     print("\nRunning query again (should use cache):")
-    results = retrieve_similar_documents(query, top_n=5)
+    results = retrieve_similar_documents(query, top_n=TOP_N_DOCUMENTS)
     
     # Test with a different query
     query2 = "Climate change"
-    results2 = retrieve_similar_documents(query2, top_n=3)
+    results2 = retrieve_similar_documents(query2, top_n=TOP_N_DOCUMENTS)
     
     print(f"\nResults for query: '{query2}'")
     for i, result in enumerate(results2):

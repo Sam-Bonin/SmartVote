@@ -1,6 +1,7 @@
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
+from config import EMBEDDING_MAX_TOKENS, EMBEDDING_MODEL
 
 # Load environment variables from .env file
 load_dotenv()
@@ -22,10 +23,9 @@ def get_embedding(text):
         return None
         
     # Truncate extremely long texts to avoid token limits
-    max_tokens = 8000  # Approximate limit for text-embedding-ada-002
-    if len(text) > max_tokens * 4:  # Rough character to token ratio
-        print(f"Warning: Truncating text from {len(text)} characters to ~{max_tokens} tokens")
-        text = text[:max_tokens * 4]
+    if len(text) > EMBEDDING_MAX_TOKENS * 4:  # Rough character to token ratio
+        print(f"Warning: Truncating text from {len(text)} characters to ~{EMBEDDING_MAX_TOKENS} tokens")
+        text = text[:EMBEDDING_MAX_TOKENS * 4]
     
     try:
         # Initialize OpenAI client with API key from environment
@@ -37,7 +37,7 @@ def get_embedding(text):
 
         # Request embedding from OpenAI
         response = client.embeddings.create(
-            model="text-embedding-ada-002", 
+            model=EMBEDDING_MODEL, 
             input=text
         )
 

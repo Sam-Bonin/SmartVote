@@ -17,6 +17,7 @@ from embedding import get_embedding
 from retriever import retrieve_similar_documents, clear_cache
 from analyzer import generate_analysis
 from main import Party
+from config import TOP_N_DOCUMENTS
 
 # Set a timeout for each test function using threading.Timer
 def timeout(seconds):
@@ -219,7 +220,7 @@ class PerformanceTest:
             # Get documents without timing (we'll use the accurate timing from test_retrieval_steps)
             print("Retrieving documents for analysis test...")
             query = self.test_queries[0]
-            documents = retrieve_similar_documents(query, top_n=3)
+            documents = retrieve_similar_documents(query, top_n=TOP_N_DOCUMENTS)
             print(f"  Retrieved {len(documents)} documents")
             
             if not documents:

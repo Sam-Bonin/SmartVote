@@ -4,6 +4,7 @@ import logging
 import traceback
 import uvicorn
 from typing import Dict, Any, List
+from config import API_HOST, API_PORT
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, FileResponse
@@ -164,4 +165,4 @@ async def health_check():
 
 if __name__ == "__main__":
     # Run the FastAPI app with uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=API_HOST, port=API_PORT)

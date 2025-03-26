@@ -7,7 +7,7 @@ import os
 # Add the parent directory to the Python path so we can import modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-API_URL = "http://localhost:8000"
+from config import API_URL
 
 def test_health_endpoint():
     """Test the health endpoint"""

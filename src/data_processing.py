@@ -3,6 +3,7 @@ import os
 import json
 from embedding import get_embedding
 import PyPDF2
+from config import MIN_TEXT_LENGTH
 
 
 def process_pdf_and_create_embeddings(pdf_path, output_json_path=None, limit_pages=None):
@@ -51,7 +52,7 @@ def process_pdf_and_create_embeddings(pdf_path, output_json_path=None, limit_pag
                     text = pdf_reader.pages[page_num].extract_text()
                     
                     # Skip pages with very little text
-                    if len(text.strip()) < 50:
+                    if len(text.strip()) < MIN_TEXT_LENGTH:
                         continue
                     
                     # Get embedding for the text

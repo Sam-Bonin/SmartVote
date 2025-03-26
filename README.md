@@ -102,8 +102,10 @@ This will:
 - `embedding.py`: Vector embedding utilities
 - `data_processing.py`: PDF processing and reference management
 - `cosine.py`: Optimized vector similarity calculations
+- `config.py`: Centralized configuration for all hyperparameters
 - `data/`: Directory containing the PDF documents and embeddings
 - `index.html`: Main frontend interface
+- `tests/`: Performance and API testing scripts
 
 ## How It Works
 

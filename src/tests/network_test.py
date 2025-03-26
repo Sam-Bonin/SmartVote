@@ -8,6 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from retriever import retrieve_similar_documents
 from analyzer import generate_analysis
+from config import TOP_N_DOCUMENTS
 
 def simulate_network_delay(min_delay=0.5, max_delay=2.0):
     """Simulate variable network delay"""
@@ -25,7 +26,7 @@ def test_real_world_conditions():
     # Cold start - first retrieval usually takes longer
     print("\nCold start retrieval:")
     start_time = time.time()
-    documents = retrieve_similar_documents(query, top_n=3)
+    documents = retrieve_similar_documents(query, top_n=TOP_N_DOCUMENTS)
     retrieval_time = time.time() - start_time
     print(f"  Cold start retrieval time: {retrieval_time:.2f} seconds")
     print(f"  Retrieved {len(documents)} documents")

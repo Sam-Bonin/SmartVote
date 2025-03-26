@@ -315,7 +315,7 @@ SmartVote maintains state in several ways:
 2. **In-Memory Caches**:
    - Query embedding cache: Stores computed embeddings for recent queries
    - Query results cache: Stores results for recent queries
-   - Both caches have size limits and basic eviction strategies
+   - Both caches have size limits and basic eviction strategies (configured in `config.py`)
    - Can be cleared via API endpoint
 
 3. **Session State (Frontend)**:
@@ -328,6 +328,12 @@ SmartVote maintains state in several ways:
    - API server maintains no persistent state between requests
    - Each request is processed independently
    - In-memory caches provide performance optimization
+
+5. **Centralized Configuration**:
+   - All hyperparameters stored in `config.py`
+   - Includes document retrieval parameters, token limits, cache settings
+   - API configuration, model names, and other tunable parameters
+   - Ensures consistency between application code and tests
 
 ## Technologies Used
 

@@ -2,6 +2,7 @@ from retriever import retrieve_similar_documents, clear_cache
 from analyzer import generate_analysis
 import json
 from dotenv import load_dotenv
+from config import TOP_N_DOCUMENTS
 
 load_dotenv()
 
@@ -21,7 +22,7 @@ class Party:
         Returns:
             list: A list of similar documents.
         """
-        return retrieve_similar_documents(query, top_n=3)
+        return retrieve_similar_documents(query, top_n=TOP_N_DOCUMENTS)
     
     def analyze(self, query, similar_docs):
         """

@@ -1,17 +1,17 @@
 from openai import OpenAI
 import re
 import math
+from config import (
+    MAX_TOKENS_TOTAL, 
+    MAX_TOKENS_OUTPUT, 
+    MAX_TOKENS_PROMPT, 
+    SYSTEM_MESSAGE_TOKENS, 
+    CHARS_PER_TOKEN,
+    ANALYSIS_MODEL,
+    PROMPT_TEMPLATE_TOKENS
+)
 
-# Constants for token limits
-MAX_TOKENS_TOTAL = 4000  # Maximum tokens for the model's context
-MAX_TOKENS_OUTPUT = 600  # Maximum tokens for the output
-MAX_TOKENS_PROMPT = MAX_TOKENS_TOTAL - MAX_TOKENS_OUTPUT  # Reserve space for output
-
-# Approximate token count for system message
-SYSTEM_MESSAGE_TOKENS = 100
-
-# Rough estimate: 1 token is about 4 characters in English text
-CHARS_PER_TOKEN = 4 
+# Constants now imported from config.py
 
 
 def estimate_token_count(text):
@@ -102,8 +102,7 @@ def generate_analysis(query, documents):
         
         # Calculate token budget for context
         query_tokens = estimate_token_count(query)
-        prompt_template_tokens = 200  # Approximate tokens for the prompt template
-        available_context_tokens = MAX_TOKENS_PROMPT - SYSTEM_MESSAGE_TOKENS - query_tokens - prompt_template_tokens
+        available_context_tokens = MAX_TOKENS_PROMPT - SYSTEM_MESSAGE_TOKENS - query_tokens - PROMPT_TEMPLATE_TOKENS
         
         # Prepare context from documents with token limiting
         context = truncate_context(documents, available_context_tokens)
@@ -130,7 +129,7 @@ Your response:
         
         # Generate completion
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=ANALYSIS_MODEL,
             messages=[
                 {"role": "system", "content": "You are an expert political analyst specializing in Canadian Liberal Party policies."},
                 {"role": "user", "content": prompt}
