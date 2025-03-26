@@ -668,7 +668,7 @@
                 window.relevantPage = page;
                 
                 // Update title
-                pdfTitleText.textContent = `Page ${page}`;
+                pdfTitleText.textContent = `PDF Page ${page}`;
                 
                 return true;
             } catch (error) {
@@ -866,7 +866,7 @@
                     }
                     
                     // Update the title text without updating the PDF source yet
-                    pdfTitleText.textContent = `Most Relevant Page (Page ${topPage})`;
+                    pdfTitleText.textContent = `Most Relevant Page (PDF Page ${topPage})`;
                     
                     // Update the link for the iframe
                     const relevantPageLink = document.getElementById('relevantPageLink');
@@ -911,7 +911,7 @@
             const cardHtml = `
                 <div class="evidence-meta">
                     <span class="similarity-badge">${Math.round(score * 100)}% Match</span>
-                    <span class="page-number">Page ${page}</span>
+                    <span class="page-number">PDF Page ${page}</span>
                 </div>
                 <div class="evidence-text">${doc.text || "No text available"}</div>
             `;

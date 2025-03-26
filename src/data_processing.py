@@ -52,7 +52,11 @@ def process_pdf_and_create_embeddings(pdf_path, output_json_path=None, limit_pag
                     text = pdf_reader.pages[page_num].extract_text()
                     
                     # Skip pages with very little text
+                    # Note: We skip pages with insufficient text but preserve the actual PDF page number.
+                    # This means page_num values in the embeddings_data may not be consecutive,
+                    # but they will correctly reference the actual PDF page.
                     if len(text.strip()) < MIN_TEXT_LENGTH:
+                        print(f"Skipping page {page_num + 1} due to insufficient text (less than {MIN_TEXT_LENGTH} characters)")
                         continue
                     
                     # Get embedding for the text
@@ -79,7 +83,7 @@ def process_pdf_and_create_embeddings(pdf_path, output_json_path=None, limit_pag
         try:
             with open(output_json_path, "w") as f:
                 json.dump(embeddings_data, f)
-            print(f"Saved {len(embeddings_data)} document embeddings to {output_json_path}")
+            print(f"Saved {len(embeddings_data)} document embeddings to {output_json_path} (Some PDF pages may have been skipped)")
             
             return embeddings_data
         except Exception as e:

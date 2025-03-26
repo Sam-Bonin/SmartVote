@@ -84,6 +84,7 @@ async def query(query_input: QueryInput):
         for doc in similar_docs:
             if 'page_num' in doc and 'page' not in doc:
                 doc['page'] = doc['page_num']
+                logger.debug(f"Using actual PDF page number: {doc['page']} (Note: Some PDF pages may have been skipped during embedding)")
             if 'similarity' in doc and 'score' not in doc:
                 doc['score'] = doc['similarity']
         
