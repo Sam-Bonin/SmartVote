@@ -1,10 +1,23 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { EvidenceCardProps } from '../types';
-import { formatScore, getAnimationDelay } from '../utils/formatters';
+import { formatScore } from '../utils/formatters';
+import { Card, CardContent, Typography, Button, Chip, Box, Divider } from '@mui/material';
+import { Description, ThumbUp, ThumbsUpDown, Visibility } from '@mui/icons-material';
+import { motion } from 'framer-motion';
 
 const EvidenceCard: React.FC<EvidenceCardProps> = ({ document, index }) => {
-  const [isHovered, setIsHovered] = useState<boolean>(false);
+  // Calculate confidence level for visual indicator
+  const confidenceLevel = () => {
+    if (document.score >= 0.9) return 'success';
+    if (document.score >= 0.7) return 'warning';
+    return 'default';
+  };
   
+  // Get confidence icon
+  const confidenceIcon = () => {
+    return document.score >= 0.8 ? <ThumbUp fontSize="small" /> : <ThumbsUpDown fontSize="small" />;
+  };
+
   const handleViewPage = () => {
     // Create URL for the PDF page
     const pdfUrl = `/data/Liberal.pdf#page=${document.page}`;
@@ -36,61 +49,64 @@ const EvidenceCard: React.FC<EvidenceCardProps> = ({ document, index }) => {
     }
   };
 
-  // Calculate confidence level for visual indicator
-  const confidenceLevel = () => {
-    if (document.score >= 0.9) return 'high';
-    if (document.score >= 0.7) return 'medium';
-    return 'low';
-  };
-  
-  // Get confidence color
-  const confidenceColor = () => {
-    switch (confidenceLevel()) {
-      case 'high': return 'var(--tertiary-accent)';
-      case 'medium': return '#F59E0B'; // Amber
-      case 'low': return 'var(--text-secondary)';
-      default: return 'var(--text-secondary)';
-    }
-  };
-
   return (
-    <div 
-      className="evidence-card" 
-      style={{ 
-        animationDelay: getAnimationDelay(index),
-        boxShadow: isHovered ? 'var(--shadow-md)' : 'var(--shadow-sm)',
-        transform: isHovered ? 'translateY(-2px)' : 'translateY(0)'
-      }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      whileHover={{ y: -4, transition: { duration: 0.2 } }}
     >
-      <p className="document-text">{document.text}</p>
-      <div className="document-meta">
-        <div className="document-page">
-          <span className="material-icons" style={{ fontSize: '16px' }}>description</span>
-          <span>PDF Page {document.page}</span>
-        </div>
-        <div className="document-score" style={{ color: confidenceColor() }}>
-          <span className="material-icons" style={{ fontSize: '16px' }}>
-            {document.score >= 0.8 ? 'thumb_up' : 'thumbs_up_down'}
-          </span>
-          <span>{formatScore(document.score)} match</span>
-        </div>
-      </div>
-      <div className="document-actions">
-        <button 
-          className="view-page-button" 
-          onClick={handleViewPage}
-          style={{
-            transform: isHovered ? 'scale(1.025)' : 'scale(1)',
-            transition: 'transform 0.2s ease'
-          }}
-        >
-          <span className="material-icons" style={{ fontSize: '16px', marginRight: '4px' }}>visibility</span>
-          View Page
-        </button>
-      </div>
-    </div>
+      <Card 
+        elevation={2}
+        sx={{ 
+          height: '100%', 
+          display: 'flex', 
+          flexDirection: 'column',
+          transition: 'box-shadow 0.3s ease',
+          '&:hover': {
+            boxShadow: '0 8px 16px rgba(0, 0, 0, 0.1)',
+          },
+        }}
+      >
+        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+          <Typography variant="body1" component="div" sx={{ mb: 2, flexGrow: 1 }}>
+            {document.text}
+          </Typography>
+          
+          <Divider sx={{ my: 2 }} />
+          
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Chip
+              icon={<Description fontSize="small" />}
+              label={`PDF Page ${document.page}`}
+              size="small"
+              variant="outlined"
+            />
+            
+            <Chip
+              icon={confidenceIcon()}
+              label={`${formatScore(document.score)} match`}
+              size="small"
+              color={confidenceLevel()}
+              variant="outlined"
+            />
+          </Box>
+          
+          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+            <Button
+              variant="outlined"
+              color="secondary"
+              startIcon={<Visibility />}
+              onClick={handleViewPage}
+              fullWidth
+              sx={{ mt: 1 }}
+            >
+              View Page
+            </Button>
+          </motion.div>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 };
 
