@@ -122,7 +122,7 @@ Generate a comprehensive analysis that:
 3. Provides specific details from the platform
 4. Uses a neutral, informative tone
 5. Uses markdown formatting with **bold** for important points
-6. Is concise but thorough (250-350 words)
+6. Is concise but thorough (150 words or less)
 
 Your response:
 """

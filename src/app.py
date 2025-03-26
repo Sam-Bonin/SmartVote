@@ -7,7 +7,7 @@ from typing import Dict, Any, List
 from config import API_HOST, API_PORT
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -97,6 +97,71 @@ async def query(query_input: QueryInput):
         logger.error(f"Error processing query: {str(e)}")
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Error processing query: {str(e)}")
+
+
+@app.post("/query-stream")
+async def query_stream(query_input: QueryInput):
+    """
+    Process a query with streaming response to display results as they become available.
+    """
+    async def generate():
+        try:
+            # Log the incoming query
+            logger.info(f"Received streaming query: {query_input.text}")
+            
+            # Yield initial state with padding to ensure immediate display (browsers sometimes buffer small responses)
+            padding = " " * 2048  # Add padding to force browser to start displaying
+            yield json.dumps({"status": "processing", "step": "retrieval", "padding": padding}) + "\n"
+            
+            # Retrieve similar documents
+            logger.info("Retrieving similar documents")
+            similar_docs = party.retrieve(query_input.text)
+            logger.info(f"Found {len(similar_docs)} similar documents")
+            
+            # Transform page_num to page for frontend compatibility
+            for doc in similar_docs:
+                if 'page_num' in doc and 'page' not in doc:
+                    doc['page'] = doc['page_num']
+                if 'similarity' in doc and 'score' not in doc:
+                    doc['score'] = doc['similarity']
+            
+            # Send the documents immediately
+            yield json.dumps({
+                "status": "partial", 
+                "step": "documents_ready",
+                "similar_documents": similar_docs
+            }) + "\n"
+            
+            # Generate analysis
+            logger.info("Generating analysis")
+            yield json.dumps({"status": "processing", "step": "analysis"}) + "\n"
+            
+            analysis = party.analyze(query_input.text, similar_docs)
+            logger.info("Analysis generation completed")
+            
+            # Send the complete results
+            yield json.dumps({
+                "status": "complete",
+                "analysis": analysis,
+            }) + "\n"
+            
+        except Exception as e:
+            logger.error(f"Error processing streaming query: {str(e)}")
+            logger.error(traceback.format_exc())
+            yield json.dumps({
+                "status": "error",
+                "message": str(e)
+            }) + "\n"
+    
+    return StreamingResponse(
+        generate(),
+        media_type="application/x-ndjson",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",  # Disable Nginx buffering if used
+            "Content-Encoding": "identity"  # Prevent compression which can cause buffering
+        }
+    )
 
 
 @app.post("/clear-cache")

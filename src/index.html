@@ -708,10 +708,20 @@
             
             try {
                 console.log("Submitting query:", query);
-                const response = await fetch('/query', {
+                
+                // Use streaming endpoint
+                const response = await fetch('/query-stream', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: query })
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ text: query }),
+                    cache: 'no-store',
+                    credentials: 'same-origin',
+                    mode: 'cors',
+                    redirect: 'follow',
                 });
                 
                 if (!response.ok) {
@@ -720,9 +730,51 @@
                     throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
                 }
                 
-                const data = await response.json();
-                console.log("Received response data:", data);
-                displayResults(data, query);
+                // Set up reader for streaming response
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let buffer = '';
+                
+                // Process the stream
+                while (true) {
+                    const { done, value } = await reader.read();
+                    
+                    if (done) {
+                        break;
+                    }
+                    
+                    // Decode and process the chunk
+                    buffer += decoder.decode(value, { stream: true });
+                    
+                    // Process complete lines
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // Keep the last incomplete line in the buffer
+                    
+                    for (const line of lines) {
+                        if (line.trim() === '') continue;
+                        
+                        try {
+                            const data = JSON.parse(line);
+                            console.log("Received streaming data:", data);
+                            
+                            // Handle different response types
+                            if (data.status === 'partial' && data.step === 'documents_ready') {
+                                // Display documents as they arrive
+                                updateDocuments(data.similar_documents);
+                            } else if (data.status === 'complete') {
+                                // Display analysis when it arrives
+                                updateAnalysis(data.analysis, query);
+                            } else if (data.status === 'processing') {
+                                // Update loading message
+                                updateLoadingState(data.step);
+                            } else if (data.status === 'error') {
+                                throw new Error(data.message);
+                            }
+                        } catch (error) {
+                            console.error("Error parsing streaming data:", error);
+                        }
+                    }
+                }
             } catch (error) {
                 console.error('Error:', error);
                 analysisContainer.innerHTML = `
@@ -732,129 +784,43 @@
             }
         }
         
-        // Format the analysis with improved styling
-        function displayResults(data, query) {
-            // Update query display
-            queryDisplay.textContent = `"${query}"`;
-            
-            // Prepare the analysis container with loading animation
+        // Update loading state based on current step
+        function updateLoadingState(step) {
             const analysisContainer = document.getElementById('analysis');
-            
-            // Format and display the analysis
-            setTimeout(() => {
-                // First process the raw text to prevent HTML tag splitting
-                const rawText = data.analysis.response;
-                
-                // Process the text all at once before displaying
-                let processedHtml = rawText
-                    // Bold text
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    // Italic text
-                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                    // Headers
-                    .replace(/^### (.*?)$/gm, '<h3>$1</h3>')
-                    .replace(/^## (.*?)$/gm, '<h2>$1</h2>')
-                    .replace(/^# (.*?)$/gm, '<h1>$1</h1>');
-                
-                // Process lists after other formatting
-                let lines = processedHtml.split('\n');
-                let inList = false;
-                let listType = '';
-                
-                for (let i = 0; i < lines.length; i++) {
-                    // Check for bullet list items
-                    if (lines[i].match(/^- (.*?)$/)) {
-                        if (!inList || listType !== 'ul') {
-                            // Start a new list if not in one
-                            lines[i] = inList ? '</'+listType+'><ul><li>' + lines[i].substring(2) + '</li>' : '<ul><li>' + lines[i].substring(2) + '</li>';
-                            inList = true;
-                            listType = 'ul';
-                        } else {
-                            // Continue the list
-                            lines[i] = '<li>' + lines[i].substring(2) + '</li>';
-                        }
-                    }
-                    // Check for numbered list items
-                    else if (lines[i].match(/^\d+\. (.*?)$/)) {
-                        if (!inList || listType !== 'ol') {
-                            // Start a new list if not in one
-                            lines[i] = inList ? '</'+listType+'><ol><li>' + lines[i].replace(/^\d+\. /, '') + '</li>' : '<ol><li>' + lines[i].replace(/^\d+\. /, '') + '</li>';
-                            inList = true;
-                            listType = 'ol';
-                        } else {
-                            // Continue the list
-                            lines[i] = '<li>' + lines[i].replace(/^\d+\. /, '') + '</li>';
-                        }
-                    }
-                    // Not a list item - close list if we were in one
-                    else if (inList && lines[i].trim() !== '') {
-                        lines[i] = '</'+listType+'>' + lines[i];
-                        inList = false;
-                    }
-                }
-                
-                // Close any open list at the end
-                if (inList) {
-                    lines.push('</'+listType+'>');
-                }
-                
-                // Reassemble the lines
-                processedHtml = lines.join('\n');
-                
-                // Handle paragraphs - split by double newlines
-                const paragraphs = processedHtml.split('\n\n');
-                processedHtml = paragraphs.map(p => {
-                    // Skip if already wrapped in a block element
-                    if (p.trim().startsWith('<h') || p.trim().startsWith('<ul') || 
-                        p.trim().startsWith('<ol') || p.trim().startsWith('<p')) {
-                        return p;
-                    }
-                    // Otherwise wrap in paragraph tags
-                    return '<p>' + p + '</p>';
-                }).join('\n');
-                
-                // Replace single newlines with <br> only within paragraphs
-                processedHtml = processedHtml.replace(/<p>(.*?)<\/p>/gs, function(match, p1) {
-                    return '<p>' + p1.replace(/\n/g, '<br>') + '</p>';
-                });
-                
-                // Display the fully processed HTML at once
-                analysisContainer.innerHTML = processedHtml;
-                
-                // Add a fade-in animation instead of typing effect
-                analysisContainer.style.opacity = '0';
-                setTimeout(() => {
-                    analysisContainer.style.transition = 'opacity 0.5s ease-in-out';
-                    analysisContainer.style.opacity = '1';
-                }, 50);
-            }, 300);
-            
-            // Display documents as evidence cards
+            if (step === 'retrieval') {
+                analysisContainer.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div><p>Retrieving documents...</p>';
+            } else if (step === 'analysis') {
+                analysisContainer.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div><p>Generating analysis...</p>';
+            }
+        }
+        
+        // Update documents display
+        function updateDocuments(documents) {
             const documentsContainer = document.getElementById('documents');
             documentsContainer.innerHTML = '';
             
             // Store all documents for view more functionality
-            window.allDocuments = data.similar_documents;
-            const initialDisplay = Math.min(5, data.similar_documents.length);
+            window.allDocuments = documents;
+            const initialDisplay = Math.min(5, documents.length);
             
             // Display first 5 documents
             for(let i = 0; i < initialDisplay; i++) {
-                const doc = data.similar_documents[i];
+                const doc = documents[i];
                 documentsContainer.appendChild(createEvidenceCard(doc, i));
             }
             
             // Show/hide view more button
-            if (data.similar_documents.length > 5) {
+            if (documents.length > 5) {
                 viewMoreBtn.classList.remove('hidden');
-                viewMoreBtn.textContent = `View ${data.similar_documents.length - 5} More Results`;
+                viewMoreBtn.textContent = `View ${documents.length - 5} More Results`;
             } else {
                 viewMoreBtn.classList.add('hidden');
             }
             
             // Update PDF viewer
-            if (data.similar_documents.length > 0) {
+            if (documents.length > 0) {
                 try {
-                    const topDoc = data.similar_documents[0];
+                    const topDoc = documents[0];
                     
                     // Ensure page property exists
                     let topPage = 1; // Default to page 1
@@ -884,6 +850,108 @@
                     pdfTitleText.textContent = "PDF Viewer (Error loading page)";
                 }
             }
+        }
+        
+        // Update analysis display
+        function updateAnalysis(analysis, query) {
+            // Update query display
+            queryDisplay.textContent = `"${query}"`;
+            
+            // Get the analysis container
+            const analysisContainer = document.getElementById('analysis');
+            
+            // First process the raw text to prevent HTML tag splitting
+            const rawText = analysis.response;
+            
+            // Process the text all at once before displaying
+            let processedHtml = rawText
+                // Bold text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                // Italic text
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                // Headers
+                .replace(/^### (.*?)$/gm, '<h3>$1</h3>')
+                .replace(/^## (.*?)$/gm, '<h2>$1</h2>')
+                .replace(/^# (.*?)$/gm, '<h1>$1</h1>');
+            
+            // Process lists after other formatting
+            let lines = processedHtml.split('\n');
+            let inList = false;
+            let listType = '';
+            
+            for (let i = 0; i < lines.length; i++) {
+                // Check for bullet list items
+                if (lines[i].match(/^- (.*?)$/)) {
+                    if (!inList || listType !== 'ul') {
+                        // Start a new list if not in one
+                        lines[i] = inList ? '</'+listType+'><ul><li>' + lines[i].substring(2) + '</li>' : '<ul><li>' + lines[i].substring(2) + '</li>';
+                        inList = true;
+                        listType = 'ul';
+                    } else {
+                        // Continue the list
+                        lines[i] = '<li>' + lines[i].substring(2) + '</li>';
+                    }
+                }
+                // Check for numbered list items
+                else if (lines[i].match(/^\d+\. (.*?)$/)) {
+                    if (!inList || listType !== 'ol') {
+                        // Start a new list if not in one
+                        lines[i] = inList ? '</'+listType+'><ol><li>' + lines[i].replace(/^\d+\. /, '') + '</li>' : '<ol><li>' + lines[i].replace(/^\d+\. /, '') + '</li>';
+                        inList = true;
+                        listType = 'ol';
+                    } else {
+                        // Continue the list
+                        lines[i] = '<li>' + lines[i].replace(/^\d+\. /, '') + '</li>';
+                    }
+                }
+                // Not a list item - close list if we were in one
+                else if (inList && lines[i].trim() !== '') {
+                    lines[i] = '</'+listType+'>' + lines[i];
+                    inList = false;
+                }
+            }
+            
+            // Close any open list at the end
+            if (inList) {
+                lines.push('</'+listType+'>');
+            }
+            
+            // Reassemble the lines
+            processedHtml = lines.join('\n');
+            
+            // Handle paragraphs - split by double newlines
+            const paragraphs = processedHtml.split('\n\n');
+            processedHtml = paragraphs.map(p => {
+                // Skip if already wrapped in a block element
+                if (p.trim().startsWith('<h') || p.trim().startsWith('<ul') || 
+                    p.trim().startsWith('<ol') || p.trim().startsWith('<p')) {
+                    return p;
+                }
+                // Otherwise wrap in paragraph tags
+                return '<p>' + p + '</p>';
+            }).join('\n');
+            
+            // Replace single newlines with <br> only within paragraphs
+            processedHtml = processedHtml.replace(/<p>(.*?)<\/p>/gs, function(match, p1) {
+                return '<p>' + p1.replace(/\n/g, '<br>') + '</p>';
+            });
+            
+            // Display the fully processed HTML at once
+            analysisContainer.innerHTML = processedHtml;
+            
+            // Add a fade-in animation instead of typing effect
+            analysisContainer.style.opacity = '0';
+            setTimeout(() => {
+                analysisContainer.style.transition = 'opacity 0.5s ease-in-out';
+                analysisContainer.style.opacity = '1';
+            }, 50);
+        }
+        
+        // Format the analysis with improved styling - replaced by the functions above
+        function displayResults(data, query) {
+            // Update analysis and documents using the new functions
+            updateAnalysis(data.analysis, query);
+            updateDocuments(data.similar_documents);
         }
         
         // Create evidence card element
