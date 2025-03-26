@@ -79,6 +79,13 @@ async def query(query_input: QueryInput):
         analysis = party.analyze(query_input.text, similar_docs)
         logger.info("Analysis generation completed")
         
+        # Transform page_num to page for frontend compatibility
+        for doc in similar_docs:
+            if 'page_num' in doc and 'page' not in doc:
+                doc['page'] = doc['page_num']
+            if 'similarity' in doc and 'score' not in doc:
+                doc['score'] = doc['similarity']
+        
         # Return the results
         return {
             "analysis": analysis,

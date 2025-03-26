@@ -113,7 +113,9 @@ def retrieve_similar_documents(query, top_n=25):
             
             results.append({
                 "page_num": page_num,
+                "page": page_num,  # Add page field for frontend compatibility
                 "similarity": float(similarity),  # Convert numpy float to native Python float
+                "score": float(similarity),  # Add score field for frontend compatibility
                 "text": text,
             })
     

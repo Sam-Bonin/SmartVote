@@ -647,12 +647,36 @@
             
             // Set PDF source if expanding the viewer
             if (pdfViewerContainer.classList.contains('expanded')) {
-                const topPage = window.relevantPage || 1;
-                const pdfUrl = `/data/Liberal.pdf#page=${topPage}`;
-                console.log("Loading PDF at page:", topPage);
-                pdfViewer.src = pdfUrl;
+                loadPDF(window.relevantPage);
             }
         });
+        
+        // Function to handle PDF loading with error protection
+        function loadPDF(pageNum) {
+            try {
+                // Default to page 1 if not provided
+                const page = pageNum || 1;
+                
+                // Construct the URL
+                const pdfUrl = `/data/Liberal.pdf#page=${page}`;
+                
+                // Set the source
+                console.log("Loading PDF at page:", page);
+                pdfViewer.src = pdfUrl;
+                
+                // Update relevant page reference
+                window.relevantPage = page;
+                
+                // Update title
+                pdfTitleText.textContent = `Page ${page}`;
+                
+                return true;
+            } catch (error) {
+                console.error("Error loading PDF:", error);
+                pdfTitleText.textContent = "PDF Viewer (Error loading)";
+                return false;
+            }
+        }
         
         // Set query from topic chip
         function setQuery(text) {
@@ -829,22 +853,35 @@
             
             // Update PDF viewer
             if (data.similar_documents.length > 0) {
-                const topDoc = data.similar_documents[0];
-                const topPage = topDoc.page;
-                window.relevantPage = topPage;
-                
-                // Update the title text
-                pdfTitleText.textContent = `Most Relevant Page (Page ${topPage})`;
-                
-                // Update the link for the iframe
-                const relevantPageLink = document.getElementById('relevantPageLink');
-                const pdfUrl = `/data/Liberal.pdf#page=${topPage}`;
-                relevantPageLink.href = pdfUrl;
-                
-                // If PDF viewer is already expanded, update the source
-                if (pdfViewerContainer.classList.contains('expanded')) {
-                    console.log("Updating PDF to page:", topPage);
-                    pdfViewer.src = pdfUrl;
+                try {
+                    const topDoc = data.similar_documents[0];
+                    
+                    // Ensure page property exists
+                    let topPage = 1; // Default to page 1
+                    if (typeof topDoc.page !== 'undefined') {
+                        topPage = topDoc.page;
+                    } else if (typeof topDoc.page_num !== 'undefined') {
+                        topPage = topDoc.page_num;
+                        console.log("Using page_num instead of page:", topPage);
+                    }
+                    
+                    // Update the title text without updating the PDF source yet
+                    pdfTitleText.textContent = `Most Relevant Page (Page ${topPage})`;
+                    
+                    // Update the link for the iframe
+                    const relevantPageLink = document.getElementById('relevantPageLink');
+                    relevantPageLink.href = `/data/Liberal.pdf#page=${topPage}`;
+                    
+                    // Store the page reference globally
+                    window.relevantPage = topPage;
+                    
+                    // If PDF viewer is already expanded, update the source using our safe function
+                    if (pdfViewerContainer.classList.contains('expanded')) {
+                        loadPDF(topPage);
+                    }
+                } catch (error) {
+                    console.error("Error updating PDF viewer:", error);
+                    pdfTitleText.textContent = "PDF Viewer (Error loading page)";
                 }
             }
         }
@@ -856,31 +893,41 @@
             card.className = `evidence-card animate-fade-in`;
             card.style.animationDelay = `${delay}ms`;
             
+            // Ensure score and page properties exist with fallbacks
+            let score = 0;
+            if (typeof doc.score !== 'undefined') {
+                score = doc.score;
+            } else if (typeof doc.similarity !== 'undefined') {
+                score = doc.similarity;
+            }
+            
+            let page = 1;
+            if (typeof doc.page !== 'undefined') {
+                page = doc.page;
+            } else if (typeof doc.page_num !== 'undefined') {
+                page = doc.page_num;
+            }
+            
             const cardHtml = `
                 <div class="evidence-meta">
-                    <span class="similarity-badge">${Math.round(doc.score * 100)}% Match</span>
-                    <span class="page-number">Page ${doc.page}</span>
+                    <span class="similarity-badge">${Math.round(score * 100)}% Match</span>
+                    <span class="page-number">Page ${page}</span>
                 </div>
-                <div class="evidence-text">${doc.text}</div>
+                <div class="evidence-text">${doc.text || "No text available"}</div>
             `;
             
             card.innerHTML = cardHtml;
             
             // Add click event to navigate to this page in the PDF
             card.addEventListener('click', () => {
-                window.relevantPage = doc.page;
-                pdfTitleText.textContent = `Page ${doc.page}`;
-                
-                // Ensure the PDF viewer is expanded and set to this page
+                // Ensure the PDF viewer is expanded
                 if (!pdfViewerContainer.classList.contains('expanded')) {
                     pdfViewerContainer.classList.add('expanded');
                     pdfHeader.parentElement.classList.add('expanded');
                 }
                 
                 // Load the PDF at the specific page
-                const pdfUrl = `/data/Liberal.pdf#page=${doc.page}`;
-                pdfViewer.src = pdfUrl;
-                console.log("Loading PDF from card click to page:", doc.page);
+                loadPDF(page);
                 
                 // Scroll to the PDF viewer
                 pdfHeader.scrollIntoView({ behavior: 'smooth' });
