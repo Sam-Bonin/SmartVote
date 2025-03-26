@@ -1,9 +1,11 @@
 import React, { useState, FormEvent, useRef, useEffect } from 'react';
 import { SearchProps } from '../types';
+import { TextField, Button, InputAdornment, Box, Paper } from '@mui/material';
+import { Search as SearchIcon, Clear as ClearIcon } from '@mui/icons-material';
+import { motion } from 'framer-motion';
 
 const SearchBox: React.FC<SearchProps> = ({ onSearch }) => {
   const [searchText, setSearchText] = useState<string>('');
-  const [isFocused, setIsFocused] = useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus the input when component mounts
@@ -28,54 +30,79 @@ const SearchBox: React.FC<SearchProps> = ({ onSearch }) => {
   };
 
   return (
-    <div className="search-container">
-      <form className="search-form" onSubmit={handleSubmit}>
-        <div className="search-input-container" style={{ position: 'relative', flex: 1 }}>
-          <input
-            ref={inputRef}
-            type="text"
-            className="search-input"
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <Paper 
+        elevation={2}
+        sx={{ 
+          p: 3, 
+          mb: 4,
+          borderRadius: 2,
+          background: 'white',
+        }}
+      >
+        <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', gap: 1 }}>
+          <TextField
+            fullWidth
+            inputRef={inputRef}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
             placeholder="Ask about the Liberal Platform..."
-            aria-label="Search query"
+            variant="outlined"
+            sx={{ 
+              '& .MuiOutlinedInput-root': {
+                transition: 'all 0.3s ease',
+                '&:hover, &.Mui-focused': {
+                  '& fieldset': {
+                    borderColor: 'primary.main',
+                    borderWidth: '2px',
+                  },
+                },
+              },
+            }}
+            InputProps={{
+              endAdornment: searchText ? (
+                <InputAdornment position="end">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                  >
+                    <Button 
+                      onClick={handleClear}
+                      size="small"
+                      sx={{ minWidth: 'auto', p: 0.5 }}
+                    >
+                      <ClearIcon fontSize="small" />
+                    </Button>
+                  </motion.div>
+                </InputAdornment>
+              ) : null,
+            }}
           />
-          {searchText && (
-            <button 
-              type="button" 
-              onClick={handleClear}
-              className="search-clear-button"
-              aria-label="Clear search"
-              style={{
-                position: 'absolute',
-                right: '12px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--text-secondary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button
+              type="submit"
+              variant="contained"
+              color="secondary"
+              disabled={!searchText.trim()}
+              disableElevation
+              sx={{ 
+                px: 3,
+                height: '100%',
+                whiteSpace: 'nowrap',
               }}
+              startIcon={<SearchIcon />}
             >
-              <span className="material-icons" style={{ fontSize: '20px' }}>clear</span>
-            </button>
-          )}
-        </div>
-        <button 
-          type="submit" 
-          className="search-button"
-          disabled={!searchText.trim()}
-        >
-          <span className="material-icons" style={{ fontSize: '20px', marginRight: '4px' }}>search</span>
-          Search
-        </button>
-      </form>
-    </div>
+              Search
+            </Button>
+          </motion.div>
+        </Box>
+      </Paper>
+    </motion.div>
   );
 };
 
