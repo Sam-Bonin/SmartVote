@@ -8,3 +8,4 @@ venv/
 *.log
 .env
 .cursorindexingignore
+frontend/node_modules
