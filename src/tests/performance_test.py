@@ -215,23 +215,18 @@ class PerformanceTest:
         """Test performance of analysis generation using OpenAI API"""
         print("\nTesting analysis generation...")
         
-        # Get documents from retrieval test or run retrieval
         try:
+            # Get documents without timing (we'll use the accurate timing from test_retrieval_steps)
             print("Retrieving documents for analysis test...")
             query = self.test_queries[0]
-            
-            # Time just the document retrieval
-            start_time = time.time()
-            documents = retrieve_similar_documents(query, top_n=5)
-            retrieval_time = time.time() - start_time
-            print(f"  Document retrieval time: {retrieval_time:.4f} seconds")
+            documents = retrieve_similar_documents(query, top_n=3)
             print(f"  Retrieved {len(documents)} documents")
             
             if not documents:
                 print("  No documents found for analysis test, skipping...")
                 return
                 
-            # Now test the analysis generation
+            # Test the analysis generation
             print("\nTesting analysis generation with OpenAI API...")
             start_time = time.time()
             analysis = generate_analysis(query, documents)
@@ -239,9 +234,9 @@ class PerformanceTest:
             
             self.results["Analysis Generation (OpenAI API)"].append(api_time)
             print(f"  Analysis generation time: {api_time:.4f} seconds")
-            print(f"  Generated analysis with {len(analysis)} characters")
+            print(f"  Generated analysis with {len(analysis['response'])} characters")
             
-            # Compare with retrieval time
+            # Compare with retrieval time from the detailed retrieval test
             if "Total Retrieval" in self.results and self.results["Total Retrieval"]:
                 retrieval_avg = self.results["Total Retrieval"][0]
                 api_ratio = api_time / retrieval_avg

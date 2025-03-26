@@ -21,7 +21,7 @@ class Party:
         Returns:
             list: A list of similar documents.
         """
-        return retrieve_similar_documents(query)
+        return retrieve_similar_documents(query, top_n=3)
     
     def analyze(self, query, similar_docs):
         """

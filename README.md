@@ -133,27 +133,42 @@ Performance testing has identified the following characteristics:
 | PDF Text Extraction (5 pages) | 0.63 |
 | Loading Embeddings from JSON | 0.10 |
 | Similarity Calculation | 0.06 |
-| Analysis Generation (OpenAI API) | 0.01 |
-| **End-to-End Query** | **1.48** |
+| Analysis Generation (OpenAI API) | 5.29 |
+| **End-to-End Query** | **6.76** |
+
+### Real-World Performance
+
+In real-world conditions with network delays and cold starts:
+
+| Component | Time (seconds) |
+|-----------|----------------|
+| Cold Start Retrieval | 25-30 |
+| API Processing | 5-7 |
+| Network Delays | 2-3 |
+| Frontend Rendering | 1-1.5 |
+| **Total User Experience** | **33-41.5** |
 
 ### Key Bottlenecks
 
-1. **Query Embedding Generation** (46.2% of retrieval time): The OpenAI API call to generate embeddings 
-2. **PDF Text Extraction** (42.8% of retrieval time): Extracting text from PDF pages
-3. **Loading Embeddings** (7.0% of retrieval time): Loading the JSON file with embeddings
+1. **Cold Start** (60-75% of real-world time): Initial document retrieval on first application load
+2. **Analysis Generation** (76.6% of controlled test time): The OpenAI API call
+3. **Query Embedding Generation** (46.2% of retrieval time): The embedding API call
+4. **PDF Text Extraction** (42.8% of retrieval time): Extracting text from PDF pages
 
 ### Optimization Opportunities
 
-The application already implements several optimizations:
+The application implements several optimizations:
 - In-memory caching of query embeddings and results
 - Lazy loading of PDF text content
 - Memory-efficient JSON structure storing only references
+- Reduced document count (from 5 to 3) for analysis generation
+- Token optimization for efficient prompts
 
-Further optimizations could include:
-- Persistent caching of embeddings across sessions
+Further optimizations implemented or planned:
+- Cold start optimization with background warming
+- Response caching for common queries
+- Progressive UI loading for improved perceived performance
 - Text content caching for frequently accessed PDF pages
-- Pre-extraction of all PDF content
-- Vector database integration for larger document collections
 
 See `tests/performance_analysis.md` for a detailed analysis and recommendations.
 

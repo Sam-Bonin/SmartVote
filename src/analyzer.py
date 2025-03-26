@@ -72,6 +72,12 @@ def truncate_context(documents, max_tokens):
         used_documents += 1
     
     print(f"Using {used_documents} of {len(documents)} documents in context (estimated {current_tokens} tokens)")
+    
+    # Calculate tokens per document for efficiency metrics
+    if used_documents > 0:
+        tokens_per_doc = current_tokens / used_documents
+        print(f"Efficiency: {tokens_per_doc:.1f} tokens per document")
+    
     return context
 
 

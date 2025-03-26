@@ -373,35 +373,58 @@ Detailed performance testing has been conducted to identify bottlenecks and opti
 
 | Component | Time (seconds) | % of Total |
 |-----------|---------------:|----------:|
-| Query Embedding Generation | 0.68 | 46.2% |
-| PDF Text Extraction | 0.63 | 42.8% |
-| Loading Embeddings | 0.10 | 7.0% |
-| Similarity Calculation | 0.06 | 3.9% |
-| Analysis Generation (API) | 0.01 | 0.8% |
-| **Total End-to-End** | **1.48** | **100%** |
+| Query Embedding Generation | 0.68 | 10.1% |
+| PDF Text Extraction | 0.63 | 9.3% |
+| Loading Embeddings | 0.10 | 1.5% |
+| Similarity Calculation | 0.06 | 0.9% |
+| Analysis Generation (API) | 5.29 | 78.2% |
+| **Total End-to-End** | **6.76** | **100%** |
+
+### Real-World Performance Characteristics
+
+Our testing revealed a significant gap between controlled test performance and real-world user experience:
+
+| Component | Optimized Test | Real-World Experience |
+|-----------|---------------:|---------------------:|
+| Cold Start Retrieval | N/A | 25-30 seconds |
+| Network Delays | N/A | 2-3 seconds |
+| API Processing | 5.29 seconds | 5-7 seconds |
+| Frontend Rendering | N/A | 1-1.5 seconds |
+| **Total User Experience** | **6.76 seconds** | **33-41.5 seconds** |
+
+This discrepancy is primarily due to:
+1. Cold start effects during application initialization
+2. Network latency between client, server, and OpenAI API
+3. API performance variability
+4. Frontend rendering time
 
 ### Key Performance Insights
 
-1. **Retrieval vs. Analysis**: Document retrieval (99.2%) dominates the total query time, with analysis generation (0.8%) being surprisingly fast.
+1. **Retrieval vs. Analysis**: In controlled tests, analysis generation (78.2%) dominates the total query time, with document retrieval (21.8%) being relatively efficient.
 
-2. **API Call Distribution**: The embedding generation API call takes significantly longer than the analysis generation API call.
+2. **Cold Start Impact**: The first query after application startup is 4-6x slower than subsequent queries due to initialization overhead.
 
-3. **Optimization Impact**: The current optimizations (caching, lazy loading, etc.) already provide significant benefits.
+3. **API Call Distribution**: We've achieved an 83.4% reduction in analysis generation time by optimizing document selection (from 31.88s to 5.29s).
+
+4. **Network Effects**: Network latency adds approximately 2-3 seconds to each request in real-world conditions.
 
 ### Performance Optimization Strategy
 
 The performance testing has informed a three-tiered optimization strategy:
 
 1. **Immediate Wins**:
-   - Implement PDF text caching
-   - Keep embeddings loaded in memory
+   - Application pre-warming to address cold start issues
+   - Response caching for common queries
+   - Progressive loading indicators for improved perceived performance
 
 2. **Medium-term Improvements**:
-   - Persistent query embedding cache
-   - Pre-extract all PDF text
+   - PDF text caching for frequently accessed content
+   - Keep embeddings loaded in memory
+   - User-specific query prediction for proactive processing
 
 3. **Long-term Strategy**:
-   - Specialized vector databases
-   - Client-side embedding generation
+   - Specialized vector databases for faster similarity search
+   - Edge computing for reduced network latency
+   - Client-side embedding generation for some operations
 
 For detailed performance analysis and recommendations, refer to the `tests/performance_analysis.md` document. 

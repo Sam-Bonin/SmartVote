@@ -1,11 +1,11 @@
 {
-  "Text Retrieval": 0.15179181098937988,
-  "Query Embedding": 0.7422871589660645,
-  "Loading Embeddings": 0.10017991065979004,
-  "Similarity Calculation": 0.05575895309448242,
-  "Sorting Results": 8.392333984375e-05,
-  "Text Extraction": 0.6300160884857178,
-  "Total Retrieval": 1.5283260345458984,
-  "Analysis Generation (OpenAI API)": 31.882090091705322,
-  "End-to-End Query": 33.41041612625122
+  "Text Retrieval": 0.11345171928405762,
+  "Query Embedding": 0.7265410423278809,
+  "Loading Embeddings": 0.10034489631652832,
+  "Similarity Calculation": 0.05512499809265137,
+  "Sorting Results": 7.295608520507812e-05,
+  "Text Extraction": 0.6571640968322754,
+  "Total Retrieval": 1.539247989654541,
+  "Analysis Generation (OpenAI API)": 4.185982942581177,
+  "End-to-End Query": 5.725230932235718
 }
