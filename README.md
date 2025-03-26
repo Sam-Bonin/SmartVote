@@ -123,6 +123,40 @@ This will:
 - **GET /**: Serve the main application interface
 - **GET /data/{file_path}**: Serve files from the data directory
 
+## Performance Characteristics
+
+Performance testing has identified the following characteristics:
+
+| Component | Average Time (seconds) |
+|-----------|------------------------|
+| Query Embedding Generation | 0.68 |
+| PDF Text Extraction (5 pages) | 0.63 |
+| Loading Embeddings from JSON | 0.10 |
+| Similarity Calculation | 0.06 |
+| Analysis Generation (OpenAI API) | 0.01 |
+| **End-to-End Query** | **1.48** |
+
+### Key Bottlenecks
+
+1. **Query Embedding Generation** (46.2% of retrieval time): The OpenAI API call to generate embeddings 
+2. **PDF Text Extraction** (42.8% of retrieval time): Extracting text from PDF pages
+3. **Loading Embeddings** (7.0% of retrieval time): Loading the JSON file with embeddings
+
+### Optimization Opportunities
+
+The application already implements several optimizations:
+- In-memory caching of query embeddings and results
+- Lazy loading of PDF text content
+- Memory-efficient JSON structure storing only references
+
+Further optimizations could include:
+- Persistent caching of embeddings across sessions
+- Text content caching for frequently accessed PDF pages
+- Pre-extraction of all PDF content
+- Vector database integration for larger document collections
+
+See `tests/performance_analysis.md` for a detailed analysis and recommendations.
+
 ## Troubleshooting
 
 - If you encounter issues starting the application, make sure you have activated the virtual environment:

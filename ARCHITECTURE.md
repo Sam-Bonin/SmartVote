@@ -365,4 +365,43 @@ Key optimizations in the architecture include:
 2. Lazy loading of text content from PDF files
 3. In-memory caching of query embeddings and results
 4. Token optimization for prompt generation
-5. Efficient error handling and health monitoring 
+5. Efficient error handling and health monitoring
+
+## Performance Profile
+
+Detailed performance testing has been conducted to identify bottlenecks and optimization opportunities. The following chart shows the contribution of each component to the overall query time:
+
+| Component | Time (seconds) | % of Total |
+|-----------|---------------:|----------:|
+| Query Embedding Generation | 0.68 | 46.2% |
+| PDF Text Extraction | 0.63 | 42.8% |
+| Loading Embeddings | 0.10 | 7.0% |
+| Similarity Calculation | 0.06 | 3.9% |
+| Analysis Generation (API) | 0.01 | 0.8% |
+| **Total End-to-End** | **1.48** | **100%** |
+
+### Key Performance Insights
+
+1. **Retrieval vs. Analysis**: Document retrieval (99.2%) dominates the total query time, with analysis generation (0.8%) being surprisingly fast.
+
+2. **API Call Distribution**: The embedding generation API call takes significantly longer than the analysis generation API call.
+
+3. **Optimization Impact**: The current optimizations (caching, lazy loading, etc.) already provide significant benefits.
+
+### Performance Optimization Strategy
+
+The performance testing has informed a three-tiered optimization strategy:
+
+1. **Immediate Wins**:
+   - Implement PDF text caching
+   - Keep embeddings loaded in memory
+
+2. **Medium-term Improvements**:
+   - Persistent query embedding cache
+   - Pre-extract all PDF text
+
+3. **Long-term Strategy**:
+   - Specialized vector databases
+   - Client-side embedding generation
+
+For detailed performance analysis and recommendations, refer to the `tests/performance_analysis.md` document. 
