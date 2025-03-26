@@ -2,118 +2,128 @@ from pypdf import PdfReader
 import os
 import json
 from embedding import get_embedding
+import PyPDF2
 
 
-def process_pdf_and_create_embeddings(filename="Liberal.pdf"):
+def process_pdf_and_create_embeddings(pdf_path, output_json_path=None, limit_pages=None):
     """
-    Process a PDF file, extract text from each page, generate embeddings, 
-    and save embeddings and page references to a JSON file.
+    Process a PDF file and create embeddings for each page
     
     Args:
-        filename (str): Name of the PDF file to process
+        pdf_path (str): Path to the PDF file
+        output_json_path (str, optional): Path to save the JSON output. Defaults to 'document_embeddings.json'.
+        limit_pages (int, optional): Limit processing to first N pages. Defaults to None (all pages).
         
     Returns:
-        int: Number of pages processed
+        list: List of dictionaries with page number and embeddings
     """
-    # Construct path to PDF file in data directory
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    data_dir = os.path.join(current_dir, "data")
-    pdf_path = os.path.join(data_dir, filename)
-    
-    # Check if file exists
-    if not os.path.exists(pdf_path):
-        raise FileNotFoundError(f"PDF file not found at {pdf_path}. Please ensure {filename} exists in the data directory.")
-
-    # Initialize PDF reader
-    try:
-        reader = PdfReader(pdf_path)
-    except Exception as e:
-        raise Exception(f"Error reading PDF file: {str(e)}")
-    
-    # List to store document references and embeddings
-    document_embeddings = []
-
-    # Process each page
-    for i, page in enumerate(reader.pages):
-        try:
-            # Extract text from page
-            text = page.extract_text()
-            
-            # Skip pages with very little text
-            if len(text.strip()) < 50:
-                continue
-            
-            # Get embedding for the text
-            embedding = get_embedding(text)
-            if not embedding:
-                print(f"Warning: Failed to generate embedding for page {i + 1}, skipping.")
-                continue
-            
-            # Save only page reference and embedding, not full text
-            document_ref = {
-                "page_num": i + 1,  # 1-indexed for human readability
-                "file": filename,
-                "embedding": embedding
-            }
-            
-            document_embeddings.append(document_ref)
-            print(f"Processed and stored embeddings for page {i + 1} of {len(reader.pages)}")
-        except Exception as e:
-            print(f"Error processing page {i + 1}: {str(e)}")
-
-    # Save all document references to JSON file
-    os.makedirs(data_dir, exist_ok=True)
-    embeddings_file = os.path.join(data_dir, "document_embeddings.json")
-    
-    try:
-        with open(embeddings_file, "w") as f:
-            json.dump(document_embeddings, f)
-        print(f"Saved {len(document_embeddings)} document embeddings to {embeddings_file}")
+    if output_json_path is None:
+        output_json_path = os.path.join("data", "document_embeddings.json")
         
-        # Save the path to the PDF for later retrieval
-        pdf_info_file = os.path.join(data_dir, "pdf_info.json")
-        with open(pdf_info_file, "w") as f:
+    pdf_info_path = os.path.join("data", "pdf_info.json")
+    
+    # Check if PDF file exists
+    if not os.path.exists(pdf_path):
+        raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+    
+    try:
+        # Save PDF path info to separate JSON file
+        with open(pdf_info_path, 'w') as f:
             json.dump({"pdf_path": pdf_path}, f)
         
-        return len(document_embeddings)
+        embeddings_data = []
+        
+        # Open PDF file
+        with open(pdf_path, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            num_pages = len(pdf_reader.pages)
+            
+            # Limit pages if specified
+            if limit_pages is not None:
+                num_pages = min(num_pages, limit_pages)
+                
+            print(f"Processing {num_pages} pages from {pdf_path}")
+            
+            # Process each page
+            for page_num in range(num_pages):
+                try:
+                    # Extract text from page
+                    text = pdf_reader.pages[page_num].extract_text()
+                    
+                    # Skip pages with very little text
+                    if len(text.strip()) < 50:
+                        continue
+                    
+                    # Get embedding for the text
+                    embedding = get_embedding(text)
+                    if not embedding:
+                        print(f"Warning: Failed to generate embedding for page {page_num + 1}, skipping.")
+                        continue
+                    
+                    # Save only page reference and embedding, not full text
+                    document_ref = {
+                        "page_num": page_num + 1,  # 1-indexed for human readability
+                        "file": pdf_path,
+                        "embedding": embedding
+                    }
+                    
+                    embeddings_data.append(document_ref)
+                    print(f"Processed and stored embeddings for page {page_num + 1} of {num_pages}")
+                except Exception as e:
+                    print(f"Error processing page {page_num + 1}: {str(e)}")
+
+        # Save all document references to JSON file
+        os.makedirs(os.path.dirname(output_json_path), exist_ok=True)
+        
+        try:
+            with open(output_json_path, "w") as f:
+                json.dump(embeddings_data, f)
+            print(f"Saved {len(embeddings_data)} document embeddings to {output_json_path}")
+            
+            return embeddings_data
+        except Exception as e:
+            print(f"Error saving embeddings to file: {str(e)}")
+            return []
     except Exception as e:
-        print(f"Error saving embeddings to file: {str(e)}")
-        return 0
+        print(f"Error processing PDF file: {str(e)}")
+        return []
 
 
-def get_page_text(page_num, filename="Liberal.pdf"):
+def get_page_text(pdf_path, page_num):
     """
-    Extract text from a specific page of the PDF.
+    Extract text from a specific page of a PDF file
     
     Args:
-        page_num (int): The page number to extract (1-indexed)
-        filename (str): Name of the PDF file
+        pdf_path (str): Path to the PDF file
+        page_num (int): Page number (1-indexed)
         
     Returns:
-        str: The extracted text from the page
+        str: Text content of the page
     """
-    # Construct path to PDF file in data directory
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    data_dir = os.path.join(current_dir, "data")
-    pdf_path = os.path.join(data_dir, filename)
+    # Verify pdf_path is a string
+    if not isinstance(pdf_path, str):
+        raise TypeError("pdf_path must be a string")
+        
+    # Convert page_num to 0-indexed if it's 1-indexed
+    page_index = page_num - 1 if page_num > 0 else page_num
     
     # Check if file exists
     if not os.path.exists(pdf_path):
-        raise FileNotFoundError(f"PDF file not found at {pdf_path}")
+        raise FileNotFoundError(f"PDF file not found: {pdf_path}")
     
     try:
-        # Initialize PDF reader
-        reader = PdfReader(pdf_path)
-        
-        # Adjust page number to 0-indexed
-        page_idx = page_num - 1
-        
-        # Check if page exists
-        if page_idx < 0 or page_idx >= len(reader.pages):
-            raise ValueError(f"Page {page_num} out of range (total pages: {len(reader.pages)})")
-        
-        # Extract and return text
-        return reader.pages[page_idx].extract_text()
+        # Open PDF file
+        with open(pdf_path, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            
+            # Check if page number is valid
+            if page_index < 0 or page_index >= len(pdf_reader.pages):
+                raise ValueError(f"Invalid page number: {page_num}. PDF has {len(pdf_reader.pages)} pages.")
+            
+            # Extract text from page
+            text = pdf_reader.pages[page_index].extract_text()
+            
+            return text
     except Exception as e:
         print(f"Error extracting text from page {page_num}: {str(e)}")
         return ""
@@ -121,15 +131,9 @@ def get_page_text(page_num, filename="Liberal.pdf"):
 
 if __name__ == "__main__":
     try:
-        num_pages = process_pdf_and_create_embeddings()
-        print(f"Successfully created embeddings for {num_pages} pages")
+        pdf_path = os.path.join("data", "Liberal.pdf")
+        embeddings_data = process_pdf_and_create_embeddings(pdf_path)
+        print(f"Successfully created embeddings for {len(embeddings_data)} pages")
         print("Embeddings have been stored in the JSON file: data/document_embeddings.json")
-        
-        # Test the page text extraction
-        sample_page = 5
-        text = get_page_text(sample_page)
-        print(f"\nSample text from page {sample_page}:")
-        print(text[:200] + "..." if len(text) > 200 else text)
     except Exception as e:
-        print(f"Error: {e}")
-        print("Please ensure the PDF file exists in the 'data' directory")
+        print(f"Error: {str(e)}")

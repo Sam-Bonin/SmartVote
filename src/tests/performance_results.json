@@ -1,0 +1,11 @@
+{
+  "Text Retrieval": 0.11441725492477417,
+  "Query Embedding": 0.6799209117889404,
+  "Loading Embeddings": 0.10356807708740234,
+  "Similarity Calculation": 0.057230234146118164,
+  "Sorting Results": 6.604194641113281e-05,
+  "Text Extraction": 0.6300148963928223,
+  "Total Retrieval": 1.4708001613616943,
+  "Analysis Generation (OpenAI API)": 0.012166976928710938,
+  "End-to-End Query": 1.4829671382904053
+}
